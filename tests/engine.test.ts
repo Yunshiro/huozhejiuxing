@@ -51,6 +51,7 @@ describe('stat rules', () => {
     expect(next.stats.hunger).toBe(state.stats.hunger + (rest.effects.hunger ?? 0) + BALANCE.decay.hunger);
     expect(next.stats.mood).toBe(state.stats.mood + (rest.effects.mood ?? 0) + BALANCE.decay.mood);
     expect(next.stats.stamina).toBe(state.stats.stamina + (rest.effects.stamina ?? 0) + BALANCE.decay.stamina);
+    expect(next.stats.money).toBe(state.stats.money + (rest.effects.money ?? 0) + (BALANCE.decay.money ?? 0));
     expect(next.day).toBe(3);
     expect(next.slot).toBe('afternoon');
   });
@@ -98,11 +99,13 @@ describe('endings from the core loop', () => {
     expect(jumped.ok).toBe(true);
     if (!jumped.ok) return;
     state = jumped.state;
-    const paid = applyDebug(state, { type: 'set-stats', stats: { money: state.debt, hunger: 50, mood: 50, stamina: 50 } }, DEBUG);
+    const upkeep = -(BALANCE.decay.money ?? 0);
+    const paid = applyDebug(state, { type: 'set-stats', stats: { money: state.debt + upkeep, hunger: 50, mood: 50, stamina: 50 } }, DEBUG);
     expect(paid.ok).toBe(true);
     if (!paid.ok) return;
+    expect(chooseAction(paid.state, 'rest').stats.money).toBe(state.debt);
     expect(chooseAction(paid.state, 'rest').endingId).toBe('paid');
-    const short = applyDebug(state, { type: 'set-stats', stats: { money: state.debt - 1, hunger: 50, mood: 50, stamina: 50 } }, DEBUG);
+    const short = applyDebug(state, { type: 'set-stats', stats: { money: state.debt + upkeep - 1, hunger: 50, mood: 50, stamina: 50 } }, DEBUG);
     expect(short.ok).toBe(true);
     if (!short.ok) return;
     expect(chooseAction(short.state, 'rest').endingId).toBe('unpaid');
@@ -235,12 +238,24 @@ describe('balance shape', () => {
     }
     const finished = results.filter((result) => result.ending === 'paid' || result.ending === 'unpaid');
     const paid = results.filter((result) => result.ending === 'paid');
-    console.log('balance', results.map((result) => `${result.seed}:${result.ending}@${result.day}/${result.money}`).join(' '));
     expect(finished.length).toBeGreaterThan(0);
     expect(paid.length).toBeGreaterThan(0);
     const amounts = paid.map((result) => result.money).sort((a, b) => a - b);
     const median = amounts[Math.floor(amounts.length / 2)] ?? 0;
     expect(median).toBeLessThan(META.debt + 8000);
+  });
+
+  it('clears the debt on about 40% of runs that always take the best job', () => {
+    expect(META.debt).toBe(20000);
+    let paid = 0;
+    const runs = 200;
+    for (let seed = 1; seed <= runs; seed++) {
+      const ended = runPolicy(carefulStep, createGame(seed));
+      if (ended.endingId === 'paid') paid++;
+    }
+    const rate = paid / runs;
+    expect(rate).toBeGreaterThanOrEqual(0.36);
+    expect(rate).toBeLessThanOrEqual(0.45);
   });
 });
 

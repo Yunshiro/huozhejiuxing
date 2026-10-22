@@ -1,3 +1,6 @@
+// Regenerates src/assets/fonts/fusion-pixel-subset.woff2 from the upstream OFL font.
+// `npm run build` does not run this script and does not download anything.
+// Run `npm run font` after adding characters. The full source stays in .font-cache.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';

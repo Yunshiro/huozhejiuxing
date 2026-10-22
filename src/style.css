@@ -66,12 +66,26 @@ h2 { font-size: 24px; line-height: 1.4; margin: 0 0 8px; font-weight: 400; }
 .topbar {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 8px;
-  align-items: flex-end;
   margin-bottom: 10px;
+  white-space: nowrap;
 }
-.topbar span, .debt { display: block; color: var(--muted); }
-.debt { color: var(--accent); text-align: right; }
+.topbar strong,
+.topbar .when,
+.topbar .debt {
+  white-space: nowrap;
+  flex: none;
+}
+.topbar .when { color: var(--muted); }
+.topbar .debt { color: var(--accent); margin-left: auto; text-align: right; }
+.toast {
+  color: #d7f0cc;
+  background: #1e3324;
+  padding: 8px;
+  margin: 8px 0 0;
+}
+.toast.bad { color: #ffd0c8; background: #4a221c; }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
 .stat { background: var(--panel); padding: 6px; box-shadow: 0 0 0 2px #0e0c0a; }
 .stat.low { color: var(--danger); }

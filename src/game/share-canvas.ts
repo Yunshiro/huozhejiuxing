@@ -5,6 +5,15 @@ import { sharePlan } from './share';
 const WIDTH = 900;
 const HEIGHT = 1200;
 
+/** URL sits inside the solid footer, below the skyline and the figure. */
+export const SHARE_LAYOUT = {
+  barTop: 1048,
+  urlY: 1072,
+  urlMax: 36,
+  urlMin: 24,
+  markY: 1120,
+} as const;
+
 export async function renderShareBlob(card: ShareCard): Promise<Blob> {
   if (document.fonts?.load) {
     await document.fonts.load('72px "Fusion Pixel"');
@@ -53,15 +62,15 @@ export function drawShare(ctx: CanvasRenderingContext2D, card: ShareCard): void 
   ctx.fillStyle = '#8a7864';
   ctx.fillRect(180, 540, 540, 8);
 
-  ctx.fillStyle = '#d8c7aa';
-  const urlSize = fitSize(ctx, card.url, 24, 760);
+  ctx.fillStyle = '#fff6e8';
+  const urlSize = fitSize(ctx, card.url, SHARE_LAYOUT.urlMax, 760, SHARE_LAYOUT.urlMin);
   setFont(ctx, urlSize);
-  ctx.fillText(card.url, WIDTH / 2, 980);
+  ctx.fillText(card.url, WIDTH / 2, SHARE_LAYOUT.urlY);
 
   ctx.fillStyle = '#e2a04a';
   setFont(ctx, 24);
   ctx.textAlign = 'right';
-  ctx.fillText(card.watermark, WIDTH - 78, 1088);
+  ctx.fillText(card.watermark, WIDTH - 72, SHARE_LAYOUT.markY);
   ctx.textAlign = 'center';
 }
 
@@ -71,14 +80,20 @@ function setFont(ctx: CanvasRenderingContext2D, size: number): void {
   ctx.textBaseline = 'top';
 }
 
-function fitSize(ctx: CanvasRenderingContext2D, text: string, size: number, maxWidth: number): number {
+function fitSize(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  size: number,
+  maxWidth: number,
+  min = 12,
+): number {
   let next = size;
-  while (next > 12) {
+  while (next > min) {
     setFont(ctx, next);
     if (ctx.measureText(text).width <= maxWidth) return next;
     next -= 12;
   }
-  return 12;
+  return min;
 }
 
 function drawSkyline(ctx: CanvasRenderingContext2D): void {
@@ -105,12 +120,12 @@ function drawSkyline(ctx: CanvasRenderingContext2D): void {
       }
     }
   }
-  ctx.fillStyle = '#14110e';
-  ctx.fillRect(0, 1040, WIDTH, 160);
   ctx.fillStyle = '#e2a04a';
-  ctx.fillRect(430, 1008, 16, 28);
+  ctx.fillRect(430, 980, 16, 28);
   ctx.fillStyle = '#6ea4c4';
-  ctx.fillRect(418, 996, 40, 16);
+  ctx.fillRect(418, 968, 40, 16);
+  ctx.fillStyle = '#14110e';
+  ctx.fillRect(0, SHARE_LAYOUT.barTop, WIDTH, HEIGHT - SHARE_LAYOUT.barTop);
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {

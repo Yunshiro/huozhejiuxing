@@ -1,9 +1,7 @@
 import { BALANCE } from '../data/balance';
 import { locationById } from '../data/locations';
 import { META } from '../data/meta';
-import { NPCS } from '../data/npcs';
-import { beatAvailability, contentView } from '../game/content';
-import { applyDebug, isDebugMode } from '../game/debug';
+import { contentView } from '../game/content';
 import {
   actionViews,
   backToActions,
@@ -22,6 +20,7 @@ import { deliverImage, renderShareBlob } from '../game/share-canvas';
 import { formatDeltas, isLowStat, STAT_KEYS, STAT_LABEL } from '../game/stats';
 import type { GameState } from '../game/types';
 import type { StatKey } from '../data/schema';
+import { debugPanelHtml, handleDebugClick, queryDebug } from '@huo/debug-panel';
 
 export interface MountEnv {
   search?: string;
@@ -34,7 +33,7 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
   const storage = env.storage ?? localStorage;
   const search = env.search ?? window.location.search;
   const ua = env.ua ?? navigator.userAgent;
-  const debug = isDebugMode(search);
+  const debug = queryDebug(search);
   const loaded = readLocal(storage);
 
   let game: GameState | null = loaded.ok ? loaded.state : null;
@@ -50,6 +49,9 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
   let shareBlob: Blob | null = null;
   let shareKey = '';
   let shareNote = '';
+  let copyNote = '';
+  let copyOk = false;
+  let confirmChoice: number | null = null;
   let renderingShare = false;
 
   const view = document.createElement('div');
@@ -79,6 +81,7 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
   }
 
   function setGame(next: GameState | null): void {
+    confirmChoice = null;
     game = next;
     persist(next);
     render();
@@ -115,7 +118,7 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
       (isLowStat(game.stats.hunger) || isLowStat(game.stats.mood) || isLowStat(game.stats.stamina));
     view.innerHTML = `<div class="shell${pressured ? ' alert' : ''}" data-screen="${screen}">${
       screen === 'title' ? titleScreen() : screen === 'ending' ? endingScreen() : playScreen()
-    }${debug && game && !atTitle ? debugPanel() : ''}</div>`;
+    }${debug && game && !atTitle ? debugPanelHtml(game, debugError) : ''}</div>`;
   }
 
   function titleScreen(): string {
@@ -167,7 +170,7 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
         ${game.banner ? `<p class="banner">${esc(game.banner)}</p>` : ''}
         ${historyHtml()}
         ${phaseBody()}
-        <p class="fine">每个时段结束还会掉：饥饿 ${BALANCE.decay.hunger}，心情 ${BALANCE.decay.mood}，体力 ${BALANCE.decay.stamina}</p>
+        <p class="fine">每个时段结束还会掉：${decayLine()}</p>
         ${menuHtml()}
         ${saveWarning ? `<p class="error" role="alert">${esc(saveWarning)}</p>` : ''}
       </div>
@@ -203,7 +206,7 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
       <button data-act="retry">再来一局</button>
       <button data-act="title">回到标题</button>
     </div>
-    ${shareNote && shareUrl ? `<p class="fine">${esc(shareNote)}</p>` : ''}
+    ${shareNote && shareUrl ? `<p class="toast" role="status">${esc(shareNote)}</p>` : ''}
     ${menuHtml()}`;
   }
 
@@ -211,11 +214,9 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
     if (!game) return '';
     const gap = Math.max(0, game.debt - game.stats.money);
     return `<header class="topbar">
-      <div>
-        <strong>${esc(META.title)}</strong>
-        <span>第 ${game.day} / ${META.maxDays} 天 · ${SLOT_LABEL[game.slot]}</span>
-      </div>
-      <div class="debt">${game.stats.money >= game.debt ? '钱已经够还' : `还差 ${gap} 元`}</div>
+      <strong>${esc(META.title)}</strong>
+      <span class="when">D${game.day} ${SLOT_LABEL[game.slot]}</span>
+      <span class="debt">${game.stats.money >= game.debt ? '已够' : `差 ${gap}`}</span>
     </header>`;
   }
 
@@ -258,16 +259,24 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
     const viewModel = contentView(game);
     if (!viewModel) return `<p class="error">这段内容读不出来。</p>`;
     const who = viewModel.speaker ? `<p class="speaker">${esc(viewModel.speaker)}</p>` : '';
+    const pending = confirmChoice === null ? null : viewModel.choices[confirmChoice];
+    const choices = pending?.confirm
+      ? `<p class="event-text">${esc(pending.confirm)}</p>
+        <div class="stack">
+          <button data-act="choice-confirm" data-index="${pending.index}">${esc(pending.text)}</button>
+          <button data-act="confirm-back">再想想</button>
+        </div>`
+      : `<div class="stack">${viewModel.choices
+          .map(
+            (choice) =>
+              `<button data-act="choice" data-index="${choice.index}" ${choice.disabled ? 'disabled' : ''}>${esc(choice.text)}${choice.disabled ? ' · 钱不够' : ''}</button>`,
+          )
+          .join('')}</div>`;
     return `<section class="event">
       ${who}
       <h2>${esc(viewModel.title)}</h2>
       <p class="event-text">${esc(viewModel.text)}</p>
-      <div class="stack">${viewModel.choices
-        .map(
-          (choice) =>
-            `<button data-act="choice" data-index="${choice.index}" ${choice.disabled ? 'disabled' : ''}>${esc(choice.text)}${choice.disabled ? ' · 钱不够' : ''}</button>`,
-        )
-        .join('')}</div>
+      ${choices}
     </section>`;
   }
 
@@ -310,7 +319,7 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
         <button data-act="import-open">导入存档码</button>
         <button data-act="title">回到标题</button>
       </div>
-      ${saveOpen ? `<label class="field">存档码<textarea data-field="export" readonly rows="4">${esc(saveCode)}</textarea></label><button data-act="copy">复制</button>` : ''}
+      ${saveOpen ? `<label class="field">存档码<textarea data-field="export" readonly rows="4">${esc(saveCode)}</textarea></label><button data-act="copy">复制</button>${copyNote ? `<p class="toast${copyOk ? '' : ' bad'}" role="status">${esc(copyNote)}</p>` : ''}` : ''}
       ${importOpen ? importBox() : ''}
       ${importError ? `<p class="error" role="alert">${esc(importError)}</p>` : ''}
     </details>`;
@@ -319,31 +328,6 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
   function importBox(): string {
     return `<label class="field">把存档码贴在这里<textarea data-field="import" rows="4" placeholder="HZ1...."></textarea></label>
       <button data-act="import-go">确认导入</button>`;
-  }
-
-  function debugPanel(): string {
-    if (!game) return '';
-    const lines = NPCS.map((npc) => {
-      const progress = game!.npc[npc.id];
-      const availability = beatAvailability(game!, npc.id);
-      return `<li><span>${esc(npc.name)} 好感 ${progress?.affinity ?? 0} · ${progress?.beat ?? 0}/${npc.beats.length}</span><span>${esc(availability.reason)}</span>${
-        availability.ok ? `<button data-act="debug-npc" data-id="${esc(npc.id)}">触发</button>` : ''
-      }</li>`;
-    }).join('');
-    return `<details class="debug plain">
-      <summary>测试模式</summary>
-      ${debugError ? `<p class="error">${esc(debugError)}</p>` : ''}
-      <p class="fine">种子 ${game.seed}</p>
-      <label class="field">跳到第几天<input data-field="day" type="number" min="1" max="${META.maxDays}" value="${game.day}"></label>
-      <button data-act="debug-jump">跳转</button>
-      <div class="debug-stats">
-        ${STAT_KEYS.map((key) => `<label class="field">${STAT_LABEL[key]}<input data-field="${key}" type="number" value="${game!.stats[key]}"></label>`).join('')}
-      </div>
-      <button data-act="debug-stats">改数值</button>
-      <label class="field">用这个种子重开<input data-field="seed" type="number" value="${game.seed}"></label>
-      <button data-act="debug-seed">重开</button>
-      <ul class="npc-debug">${lines}</ul>
-    </details>`;
   }
 
   async function onClick(event: Event): Promise<void> {
@@ -419,10 +403,11 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
       const code = (view.querySelector('[data-field="export"]') as HTMLTextAreaElement | null)?.value ?? saveCode;
       try {
         await navigator.clipboard.writeText(code);
-        shareNote = '已复制。';
+        copyOk = true;
+        copyNote = '已复制。';
       } catch {
-        importError = '';
-        shareNote = '复制没成功，可以手动选中存档码。';
+        copyOk = false;
+        copyNote = '复制没成功，可以手动选中存档码。';
       }
       render();
       return;
@@ -452,50 +437,43 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
       return;
     }
     if (act === 'choice') {
+      const index = Number(target.dataset.index);
+      const choice = contentView(game)?.choices[index];
+      if (choice?.confirm && !choice.disabled) {
+        confirmChoice = index;
+        render();
+        return;
+      }
+      setGame(chooseEvent(game, index));
+      return;
+    }
+    if (act === 'choice-confirm') {
       setGame(chooseEvent(game, Number(target.dataset.index)));
       return;
     }
-    if (!debug) return;
-    if (act === 'debug-jump') {
-      const day = Number((view.querySelector('[data-field="day"]') as HTMLInputElement | null)?.value);
-      const result = applyDebug(game, { type: 'jump-day', day, slot: 'morning' }, search);
-      debugError = result.ok ? '' : result.error;
-      if (result.ok) setGame(result.state);
-      else render();
+    if (act === 'confirm-back') {
+      confirmChoice = null;
+      render();
       return;
     }
-    if (act === 'debug-stats') {
-      const read = (field: StatKey) => Number((view.querySelector(`[data-field="${field}"]`) as HTMLInputElement | null)?.value);
-      const result = applyDebug(
-        game,
-        { type: 'set-stats', stats: { money: read('money'), hunger: read('hunger'), mood: read('mood'), stamina: read('stamina') } },
-        search,
-      );
-      debugError = result.ok ? '' : result.error;
-      if (result.ok) {
-        resetShare();
-        setGame(result.state);
-      } else render();
-      return;
-    }
-    if (act === 'debug-seed') {
-      const seed = Number((view.querySelector('[data-field="seed"]') as HTMLInputElement | null)?.value);
-      const result = applyDebug(game, { type: 'new-seed', seed: Number.isFinite(seed) ? seed : 1 }, search);
-      debugError = result.ok ? '' : result.error;
-      if (result.ok) {
+    if (!debug || !act) return;
+    const result = handleDebugClick({ act, target, game, search, view });
+    if (!result.handled) return;
+    debugError = result.error;
+    if (result.state) {
+      if (result.restart) {
         resetShare();
         atTitle = false;
-        setGame(result.state);
       }
-      return;
-    }
-    if (act === 'debug-npc') {
-      const result = applyDebug(game, { type: 'queue-npc', npcId: target.dataset.id ?? '' }, search);
-      debugError = result.ok ? '' : result.error;
-      if (result.ok) setGame(result.state);
-      else render();
-    }
+      setGame(result.state);
+    } else render();
   }
+}
+
+function decayLine(): string {
+  const parts = [`饥饿 ${BALANCE.decay.hunger}`, `心情 ${BALANCE.decay.mood}`, `体力 ${BALANCE.decay.stamina}`];
+  if (BALANCE.decay.money) parts.push(`钱 ${BALANCE.decay.money}`);
+  return parts.join('，');
 }
 
 function sceneSrc(id: string): string {

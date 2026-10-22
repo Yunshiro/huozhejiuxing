@@ -153,7 +153,7 @@ export interface ContentView {
   title: string;
   text: string;
   speaker?: string;
-  choices: { index: number; text: string; disabled: boolean }[];
+  choices: { index: number; text: string; disabled: boolean; confirm?: string }[];
 }
 
 export function contentView(state: GameState): ContentView | null {
@@ -168,6 +168,7 @@ export function contentView(state: GameState): ContentView | null {
       index,
       text: choice.text,
       disabled: !canAffordChoice(state, choice),
+      confirm: choice.confirm,
     })),
   };
 }

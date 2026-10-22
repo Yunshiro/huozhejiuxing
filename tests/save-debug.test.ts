@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { BALANCE } from '../src/data/balance';
 import { META } from '../src/data/meta';
 import { EVENTS } from '../src/data/events';
 import { NPCS } from '../src/data/npcs';
@@ -9,6 +10,7 @@ import { chooseAction, chooseEvent, createGame } from '../src/game/engine';
 import { ENDING } from '../src/data/endings';
 import { decodeSave, encodeB64Url, encodeSave, fnv1a, SAVE_PREFIX, writeLocal, readLocal } from '../src/game/save';
 import { buildShareCard, sharePlan } from '../src/game/share';
+import { SHARE_LAYOUT } from '../src/game/share-canvas';
 import { pickEventChoice } from './sim';
 import type { GameState } from '../src/game/types';
 
@@ -186,6 +188,12 @@ describe('share card', () => {
     expect(card?.watermark).toBe(META.watermark);
   });
 
+  it('places the url inside the dark footer, clear of the watermark line', () => {
+    expect(SHARE_LAYOUT.urlY).toBeGreaterThanOrEqual(SHARE_LAYOUT.barTop);
+    expect(SHARE_LAYOUT.urlY + SHARE_LAYOUT.urlMax).toBeLessThanOrEqual(SHARE_LAYOUT.markY);
+    expect(SHARE_LAYOUT.urlMin).toBeGreaterThanOrEqual(24);
+  });
+
   it('picks wechat, mobile share, or desktop download', () => {
     expect(sharePlan('Mozilla/5.0 MicroMessenger', true)).toBe('wechat');
     expect(sharePlan('Mozilla/5.0 MicroMessenger', false)).toBe('wechat');
@@ -202,6 +210,7 @@ describe('font loading', () => {
     expect(css).toContain('PingFang SC');
     expect(css).toContain('Microsoft YaHei');
     expect(css).toContain('fusion-pixel-subset.woff2');
+    expect(css).toContain('white-space: nowrap');
     const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
     expect(html).toContain('PingFang SC');
   });
@@ -221,7 +230,8 @@ function endingByAction(patch: Partial<GameState['stats']>, action: string, opti
 function day30(kind: 'paid' | 'unpaid'): string {
   const jumped = applyDebug(createGame(1), { type: 'jump-day', day: 30, slot: 'evening', skipContent: true }, DEBUG);
   if (!jumped.ok) throw new Error(jumped.error);
-  const money = kind === 'paid' ? jumped.state.debt : jumped.state.debt - 1;
+  const upkeep = -(BALANCE.decay.money ?? 0);
+  const money = kind === 'paid' ? jumped.state.debt + upkeep : jumped.state.debt + upkeep - 1;
   const stats = applyDebug(jumped.state, { type: 'set-stats', stats: { money, hunger: 50, mood: 50, stamina: 50 } }, DEBUG);
   if (!stats.ok) throw new Error(stats.error);
   const ended = chooseAction(stats.state, 'rest');
