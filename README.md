@@ -2,7 +2,7 @@
 
 三十天，一笔债。饥饿、心情、体力有一项归零，这一局就停；第 30 天结束时，手头的钱够不够还债，会走进不同的结局。
 
-纯静态网页，没有账号，没有服务器。构建结果可以放到 GitHub Pages 的 `/huozhejiuxing/` 路径下。
+纯静态网页，没有账号，没有服务器。构建结果是 `dist/`，部署目标是 Vercel，站点根路径是 `/`。
 
 ## 本地运行
 
@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-浏览器打开 `http://127.0.0.1:5173/huozhejiuxing/`。
+浏览器打开 `http://127.0.0.1:5173/`。
 
 ```bash
 npm test
@@ -22,7 +22,9 @@ npm run build:test
 npm run preview
 ```
 
-`npm run build` 打正式包：类型检查、静态打包，不下载字体。`npm run build:test` 打带测试模式的包，给回归用。预览地址同样是 `/huozhejiuxing/`。
+`npm run build` 打正式包：类型检查、静态打包，不下载字体。`npm run build:test` 打带测试模式的包，给回归用。`npm run preview` 的地址是 `http://127.0.0.1:4173/`。`npm run sim` 用种子 1–300 跑「最高工资」和「普通玩家」两套策略，打印还债率、死亡率、平均手头的钱。
+
+资源路径默认是 `/`。要挂到子路径，构建时设置 `VITE_BASE`，例如 `VITE_BASE=/preview/ npm run build`。
 
 ## 改数值、改文案
 
@@ -38,7 +40,7 @@ npm run preview
 | `src/data/npcs.ts` | NPC 故事线 |
 | `src/data/endings.ts` | 结局名称和正文 |
 
-债务和水印还是占位：债务 `20000`，水印 `@Yunn260414`，网址 `https://yunshiro.github.io/huozhejiuxing/`。确认后只改 `src/data/meta.ts`。
+债务 `20000`，水印 `@Yunn260414`，分享图网址 `https://huozhejiuxing.vercel.app`。要改的话只动 `src/data/meta.ts`。
 
 ## 测试模式
 
@@ -63,4 +65,6 @@ npm run preview
 
 ## 部署
 
-仓库里的 `.github/workflows/pages.yml` 只保留了手动触发（`workflow_dispatch`），push 不会发布。要上线需要先确认，并在仓库设置里把 GitHub Pages 的来源改成 GitHub Actions，再手动跑这个流程。
+部署目标是 Vercel。`vercel.json` 指定框架 `vite`、输出目录 `dist`。构建命令是 `npm run build`，站点根路径是 `/`。
+
+这个仓库不会在 push 时自动发布。要上线需要单独确认后再部署，不要把未确认的包发出去。

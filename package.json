@@ -10,6 +10,7 @@
     "build:test": "tsc --noEmit && VITE_INCLUDE_DEBUG=true vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "test": "vitest run",
+    "sim": "vite-node scripts/sim.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

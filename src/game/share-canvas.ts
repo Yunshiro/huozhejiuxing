@@ -7,11 +7,12 @@ const HEIGHT = 1200;
 
 /** URL sits inside the solid footer, below the skyline and the figure. */
 export const SHARE_LAYOUT = {
-  barTop: 1048,
-  urlY: 1072,
+  barTop: 1040,
+  urlY: 1048,
   urlMax: 36,
   urlMin: 24,
-  markY: 1120,
+  markY: 1096,
+  markSize: 36,
 } as const;
 
 export async function renderShareBlob(card: ShareCard): Promise<Blob> {
@@ -68,7 +69,7 @@ export function drawShare(ctx: CanvasRenderingContext2D, card: ShareCard): void 
   ctx.fillText(card.url, WIDTH / 2, SHARE_LAYOUT.urlY);
 
   ctx.fillStyle = '#e2a04a';
-  setFont(ctx, 24);
+  setFont(ctx, SHARE_LAYOUT.markSize);
   ctx.textAlign = 'right';
   ctx.fillText(card.watermark, WIDTH - 72, SHARE_LAYOUT.markY);
   ctx.textAlign = 'center';

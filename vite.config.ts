@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig(({ mode }) => {
   const includeDebug = mode !== 'production' || process.env.VITE_INCLUDE_DEBUG === 'true';
   return {
-    base: '/huozhejiuxing/',
+    base: process.env.VITE_BASE || '/',
     define: {
       __INCLUDE_DEBUG__: JSON.stringify(includeDebug),
     },

@@ -8,7 +8,7 @@ export const META = {
   title: '活着就行',
   debt: 20000,
   watermark: '@Yunn260414',
-  gameUrl: 'https://yunshiro.github.io/huozhejiuxing/',
+  gameUrl: 'https://huozhejiuxing.vercel.app',
   maxDays: 30,
   maxEventRepeats: 2,
 } as const;

@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BALANCE } from '../src/data/balance';
 import { META } from '../src/data/meta';
 import { EVENTS } from '../src/data/events';
 import { NPCS } from '../src/data/npcs';
@@ -192,6 +191,8 @@ describe('share card', () => {
     expect(SHARE_LAYOUT.urlY).toBeGreaterThanOrEqual(SHARE_LAYOUT.barTop);
     expect(SHARE_LAYOUT.urlY + SHARE_LAYOUT.urlMax).toBeLessThanOrEqual(SHARE_LAYOUT.markY);
     expect(SHARE_LAYOUT.urlMin).toBeGreaterThanOrEqual(24);
+    expect(SHARE_LAYOUT.markSize).toBeGreaterThanOrEqual(36);
+    expect(SHARE_LAYOUT.markY + SHARE_LAYOUT.markSize).toBeLessThanOrEqual(1148);
   });
 
   it('picks wechat, mobile share, or desktop download', () => {
@@ -230,8 +231,7 @@ function endingByAction(patch: Partial<GameState['stats']>, action: string, opti
 function day30(kind: 'paid' | 'unpaid'): string {
   const jumped = applyDebug(createGame(1), { type: 'jump-day', day: 30, slot: 'evening', skipContent: true }, DEBUG);
   if (!jumped.ok) throw new Error(jumped.error);
-  const upkeep = -(BALANCE.decay.money ?? 0);
-  const money = kind === 'paid' ? jumped.state.debt + upkeep : jumped.state.debt + upkeep - 1;
+  const money = kind === 'paid' ? jumped.state.debt : jumped.state.debt - 1;
   const stats = applyDebug(jumped.state, { type: 'set-stats', stats: { money, hunger: 50, mood: 50, stamina: 50 } }, DEBUG);
   if (!stats.ok) throw new Error(stats.error);
   const ended = chooseAction(stats.state, 'rest');

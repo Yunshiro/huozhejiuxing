@@ -471,9 +471,7 @@ export function mount(root: HTMLElement, env: MountEnv = {}): void {
 }
 
 function decayLine(): string {
-  const parts = [`饥饿 ${BALANCE.decay.hunger}`, `心情 ${BALANCE.decay.mood}`, `体力 ${BALANCE.decay.stamina}`];
-  if (BALANCE.decay.money) parts.push(`钱 ${BALANCE.decay.money}`);
-  return parts.join('，');
+  return [`饥饿 ${BALANCE.decay.hunger}`, `心情 ${BALANCE.decay.mood}`, `体力 ${BALANCE.decay.stamina}`].join('，');
 }
 
 function sceneSrc(id: string): string {
