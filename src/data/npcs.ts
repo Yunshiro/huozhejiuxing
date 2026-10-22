@@ -63,7 +63,13 @@ export const NPCS: NpcDef[] = [
         minAffinity: 3,
         text: '行李箱立在门口。小林买了两张站票，一张是他自己的，另一张空着名字。「债可以留在这儿。人也可以。车是今晚的。」',
         choices: [
-          { text: '上车', affinity: 1, endingId: ENDING.leave, result: '你把钥匙留在桌上。' },
+          {
+            text: '上车',
+            confirm: '车是今晚的。上去之后，这一局就停在这里。',
+            affinity: 1,
+            endingId: ENDING.leave,
+            result: '你把钥匙留在桌上。',
+          },
           { text: '我留下', effects: { mood: -2 }, affinity: -1, flagsAdd: ['stayed'], result: '他看了你一眼，没再劝。车门在楼下响了一声。' },
         ],
       },

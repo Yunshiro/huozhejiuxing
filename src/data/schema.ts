@@ -19,6 +19,8 @@ export interface ChoiceDef {
   npcAffinity?: { npcId: string; delta: number }[];
   flagsAdd?: string[];
   endingId?: string;
+  /** Shown before this choice is applied. The choice stays in place until the player confirms. */
+  confirm?: string;
   result?: string;
 }
 

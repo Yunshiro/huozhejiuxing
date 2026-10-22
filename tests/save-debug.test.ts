@@ -9,6 +9,7 @@ import { chooseAction, chooseEvent, createGame } from '../src/game/engine';
 import { ENDING } from '../src/data/endings';
 import { decodeSave, encodeB64Url, encodeSave, fnv1a, SAVE_PREFIX, writeLocal, readLocal } from '../src/game/save';
 import { buildShareCard, sharePlan } from '../src/game/share';
+import { SHARE_LAYOUT } from '../src/game/share-canvas';
 import { pickEventChoice } from './sim';
 import type { GameState } from '../src/game/types';
 
@@ -186,6 +187,14 @@ describe('share card', () => {
     expect(card?.watermark).toBe(META.watermark);
   });
 
+  it('places the url inside the dark footer, clear of the watermark line', () => {
+    expect(SHARE_LAYOUT.urlY).toBeGreaterThanOrEqual(SHARE_LAYOUT.barTop);
+    expect(SHARE_LAYOUT.urlY + SHARE_LAYOUT.urlMax).toBeLessThanOrEqual(SHARE_LAYOUT.markY);
+    expect(SHARE_LAYOUT.urlMin).toBeGreaterThanOrEqual(24);
+    expect(SHARE_LAYOUT.markSize).toBeGreaterThanOrEqual(36);
+    expect(SHARE_LAYOUT.markY + SHARE_LAYOUT.markSize).toBeLessThanOrEqual(1148);
+  });
+
   it('picks wechat, mobile share, or desktop download', () => {
     expect(sharePlan('Mozilla/5.0 MicroMessenger', true)).toBe('wechat');
     expect(sharePlan('Mozilla/5.0 MicroMessenger', false)).toBe('wechat');
@@ -202,6 +211,7 @@ describe('font loading', () => {
     expect(css).toContain('PingFang SC');
     expect(css).toContain('Microsoft YaHei');
     expect(css).toContain('fusion-pixel-subset.woff2');
+    expect(css).toContain('white-space: nowrap');
     const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
     expect(html).toContain('PingFang SC');
   });

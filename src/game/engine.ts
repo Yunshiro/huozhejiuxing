@@ -125,7 +125,14 @@ function finishSlot(
   },
 ): GameState {
   const applied = applyStatEffects(state.stats, spec.effects);
-  const decayed = applyStatEffects(applied.stats, BALANCE.decay);
+  const closing = state.day === META.maxDays && state.slot === 'evening';
+  // The closing slot is judged before end-of-slot upkeep, so money that
+  // already covers the debt is not spent away into a loss. Body drain still
+  // applies, and a stat hitting zero still ends the run first.
+  const slotDecay = closing
+    ? { hunger: BALANCE.decay.hunger, mood: BALANCE.decay.mood, stamina: BALANCE.decay.stamina }
+    : BALANCE.decay;
+  const decayed = applyStatEffects(applied.stats, slotDecay);
   const deltas = combineDeltas(applied.deltas, decayed.deltas);
   let next: GameState = {
     ...state,
@@ -142,8 +149,8 @@ function finishSlot(
   next = pushLog(next, [next.banner, detail].filter(Boolean).join(''));
   const death = deathEnding(next.stats);
   if (death) return toEnding(next, ENDING[death]);
-  if (next.day === META.maxDays && next.slot === 'evening') {
-    return toEnding(next, next.stats.money >= next.debt ? ENDING.paid : ENDING.unpaid);
+  if (closing) {
+    return toEnding(next, applied.stats.money >= next.debt ? ENDING.paid : ENDING.unpaid);
   }
   return advance(next);
 }

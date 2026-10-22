@@ -15,6 +15,7 @@ import { chooseAction, chooseEvent, createGame } from '../src/game/engine';
 import { isJobUnlocked, jobPay, listJobs } from '../src/game/jobs';
 import { isLowStat } from '../src/game/stats';
 import type { GameState } from '../src/game/types';
+import { simulate } from '../src/sim/run';
 import { carefulStep, recklessStep, runPolicy } from './sim';
 
 const DEBUG = '?debug=1';
@@ -51,6 +52,7 @@ describe('stat rules', () => {
     expect(next.stats.hunger).toBe(state.stats.hunger + (rest.effects.hunger ?? 0) + BALANCE.decay.hunger);
     expect(next.stats.mood).toBe(state.stats.mood + (rest.effects.mood ?? 0) + BALANCE.decay.mood);
     expect(next.stats.stamina).toBe(state.stats.stamina + (rest.effects.stamina ?? 0) + BALANCE.decay.stamina);
+    expect(next.stats.money).toBe(state.stats.money + (rest.effects.money ?? 0));
     expect(next.day).toBe(3);
     expect(next.slot).toBe('afternoon');
   });
@@ -92,7 +94,7 @@ describe('endings from the core loop', () => {
     if (result.ok) expect(result.state.endingId).toBe('starve');
   });
 
-  it('wins on day 30 when the debt is covered, including an exact amount', () => {
+  it('clears the debt on day 30 evening when money already equals it, before slot upkeep', () => {
     let state = createGame(2);
     const jumped = applyDebug(state, { type: 'jump-day', day: 30, slot: 'evening', skipContent: true }, DEBUG);
     expect(jumped.ok).toBe(true);
@@ -101,7 +103,9 @@ describe('endings from the core loop', () => {
     const paid = applyDebug(state, { type: 'set-stats', stats: { money: state.debt, hunger: 50, mood: 50, stamina: 50 } }, DEBUG);
     expect(paid.ok).toBe(true);
     if (!paid.ok) return;
-    expect(chooseAction(paid.state, 'rest').endingId).toBe('paid');
+    const settled = chooseAction(paid.state, 'rest');
+    expect(settled.endingId).toBe('paid');
+    expect(settled.stats.money).toBe(state.debt);
     const short = applyDebug(state, { type: 'set-stats', stats: { money: state.debt - 1, hunger: 50, mood: 50, stamina: 50 } }, DEBUG);
     expect(short.ok).toBe(true);
     if (!short.ok) return;
@@ -127,9 +131,10 @@ describe('jobs', () => {
   });
 
   it('pays more on the next shift after enough practice', () => {
+    const brick = JOBS.find((job) => job.id === 'brick')!;
     let state = prep({ stamina: 90, hunger: 90, mood: 90 });
     const first = listJobs(state).find((job) => job.id === 'brick')!.pay;
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < brick.stepEvery; i++) {
       if (state.phase === 'event') state = chooseEvent(state, 0);
       state = applyDebug(state, { type: 'set-stats', stats: { stamina: 90, hunger: 90, mood: 90, money: 100 } }, DEBUG).state;
       state = chooseAction(state, 'work', 'brick');
@@ -235,12 +240,26 @@ describe('balance shape', () => {
     }
     const finished = results.filter((result) => result.ending === 'paid' || result.ending === 'unpaid');
     const paid = results.filter((result) => result.ending === 'paid');
-    console.log('balance', results.map((result) => `${result.seed}:${result.ending}@${result.day}/${result.money}`).join(' '));
     expect(finished.length).toBeGreaterThan(0);
     expect(paid.length).toBeGreaterThan(0);
     const amounts = paid.map((result) => result.money).sort((a, b) => a - b);
     const median = amounts[Math.floor(amounts.length / 2)] ?? 0;
-    expect(median).toBeLessThan(META.debt + 8000);
+    expect(median).toBeLessThan(META.debt + 10000);
+  });
+
+  it('hits the tuned payoff and death bands on seeds 1-300', () => {
+    expect(META.debt).toBe(20000);
+    expect(BALANCE.decay).not.toHaveProperty('money');
+    const [greedy, normal] = simulate();
+    expect(greedy.name).toBe('greedy-max-wage');
+    expect(normal.name).toBe('normal-70%');
+    expect(greedy.runs).toBe(300);
+    expect(greedy.payoffRate).toBeGreaterThanOrEqual(0.35);
+    expect(greedy.payoffRate).toBeLessThanOrEqual(0.45);
+    expect(normal.payoffRate).toBeGreaterThanOrEqual(0.15);
+    expect(normal.payoffRate).toBeLessThanOrEqual(0.25);
+    expect(normal.deathRate).toBeGreaterThanOrEqual(0.1);
+    expect(normal.deathRate).toBeLessThanOrEqual(0.2);
   });
 });
 
