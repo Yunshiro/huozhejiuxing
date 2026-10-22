@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.font-cache/
+src/assets/fonts/*.woff2
+*.log
+.DS_Store
